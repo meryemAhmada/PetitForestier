@@ -104,6 +104,7 @@ global class Batch_Contract_Uplift implements Database.Batchable<sObject>, Datab
                     logs.add(contract.Id + ' , rateToApply: '+rateToApply);
                     system.debug('*** Batch_Contract_Uplift >> rateToApply: '+rateToApply);
 
+                    /*
                     //3. Invoke the ContractAmender API
                     Contract_Amender.AmendmentContext context = new Contract_Amender.AmendmentContext();
                     context.returnOnlyQuoteId = true; 
@@ -114,7 +115,7 @@ global class Batch_Contract_Uplift implements Database.Batchable<sObject>, Datab
 
                     logs.add(contract.Id + ' , quoteAmended: '+quote.Id);
                     system.debug('*** Batch_Contract_Uplift >> quoteAmended: '+quote.Id + ' for '+contract.Id);
-
+*/
                 }
             }
             catch(Exception exc){
