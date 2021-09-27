@@ -1,0 +1,257 @@
+@isTest
+public class Batch_Contract_Uplift_Test {
+    @testSetup
+    public static void setup(){
+        Date dd = Date.today();
+        
+        Bypass__c MyBypass = Utils_TestMethods.createBypass(UserInfo.getUserId());
+        MyBypass.BypassTriggers__c  = 'AP04Opportunite';
+        insert MyBypass;
+
+        //ACC
+        Account ACC = Utils_TestMethods.createAccount('accName', 'accCodeNAF', null, Label.CPT_RecordTypeId_CompteClient);
+        ACC.SBQQ__RenewalModel__c  = 'Contract Based';
+        ACC.statut__c = 'Validé';
+        ACC.SBQQ__PreserveBundle__c = true;
+        insert ACC;
+        
+        //CONTACT
+        Contact Cont = Utils_TestMethods.createContact('conName', ACC.id);
+      	insert Cont;
+        
+        Id pricebookId = Test.getStandardPricebookId();
+        
+        //OPPORTUNITY
+        Opportunity  OPP = Utils_TestMethods.createOpportunity('oppName', '2 - Opportunité qualifiée',dd , ACC);
+        OPP.Pricebook2Id = pricebookId;
+        OPP.Type_Location__c = 'Courte Durée';
+        insert OPP;
+      
+        //Product
+        Product2 PRD1 = new Product2(Name = 'Product test 1' , IsActive = true , SBQQ__SubscriptionPricing__c = 'Fixed Price');
+        insert PRD1;
+        
+        Product2 PRD2 = new Product2(Name = 'Product test 2' , IsActive = true , SBQQ__SubscriptionPricing__c = 'Fixed Price');
+        insert PRD2;
+
+        PricebookEntry pricebookEntry = new PricebookEntry();
+        pricebookEntry.Pricebook2Id = pricebookId;
+        pricebookEntry.Product2Id = PRD1.Id;
+        pricebookEntry.IsActive = true;
+        pricebookEntry.UnitPrice = 100;
+        insert pricebookEntry;
+
+		pricebookEntry = new PricebookEntry();
+        pricebookEntry.Pricebook2Id = pricebookId;
+        pricebookEntry.Product2Id = PRD2.Id;
+        pricebookEntry.IsActive = true;
+        pricebookEntry.UnitPrice = 100;
+        insert pricebookEntry;
+        
+        //Quote
+        SBQQ__Quote__c Q = new SBQQ__Quote__c();
+        Q.Quote_Type__c = 'Standard Quote';
+        Q.SBQQ__Primary__c = true;
+        Q.SBQQ__Account__c = ACC.Id;
+        Q.SBQQ__Opportunity2__c  = OPP.Id;
+        Q.SBQQ__StartDate__c = dd;
+        insert Q;
+        
+        //QLIS
+        List<SBQQ__QuoteLine__c> qlis = new List<SBQQ__QuoteLine__c>();
+        SBQQ__QuoteLine__c QLI1 = new SBQQ__QuoteLine__c();
+        QLI1.SBQQ__Product__c = PRD1.Id;
+        QLI1.SBQQ__Quote__c = Q.Id;
+        QLI1.SBQQ__Quantity__c = 12;
+        QLI1.SBQQ__StartDate__c  = Date.newInstance(2021  , 10 , 10);
+        QLI1.SBQQ__EndDate__c  = Date.newInstance(2021  , 11 , 11);
+        QLI1.SBQQ__SubscriptionPricing__c = 'Fixed Price';
+        QLI1.Uplift_Eligible__c = true;
+        qlis.add(QLI1);
+        
+        SBQQ__QuoteLine__c QLI2 = new SBQQ__QuoteLine__c();
+        QLI2.SBQQ__Product__c = PRD2.Id;
+        QLI2.SBQQ__Quote__c = Q.Id;
+        QLI2.SBQQ__Quantity__c = 12;
+        QLI2.SBQQ__StartDate__c  = Date.newInstance(2021  , 10 , 10);
+        QLI2.SBQQ__EndDate__c  = Date.newInstance(2021  , 11 , 11);
+        QLI2.SBQQ__SubscriptionPricing__c = 'Fixed Price';
+        qlis.add(QLI2);
+        
+        insert qlis;
+        OPP.SBQQ__Contracted__c  = true;
+        update OPP;
+        
+        
+        Order order = new Order (blng__BillingDayOfMonth__c = '1'  , AccountId  = ACC.Id , Status  = 'Draft' , StartDate__c = Date.newInstance(2021  , 10 , 10) , EndDate__c  = Date.newInstance(2021  , 11 , 11), EffectiveDate  =Date.newInstance(2021  , 10 , 10) , SBQQ__Quote__c = Q.Id);
+        insert order;
+        
+        OrderItem orderItem = new OrderItem(OrderId = order.Id , pricebookEntryId = pricebookEntry.Id , SBQQ__ChargeType__c ='One-Time' , UnitPrice = 4 , Quantity = 4 , Uplift_Eligible__c = true);
+		insert orderItem;
+        
+        blng__UsageSummary__c usageSummary = new blng__UsageSummary__c(blng__UnitPrice__c = 10 , blng__OrderProduct__c = orderItem.Id , blng__SummaryEndDate__c = Date.newInstance(2025  , 11 , 11) , blng__SummaryStartDate__c = Date.newInstance(2025  , 10 , 10));
+        insert usageSummary;
+        
+        //LEGAL ENTITIES
+        List<blng__LegalEntity__c> legalEntities = new List<blng__LegalEntity__c>();
+        blng__LegalEntity__c legalEntityMensuelle = new blng__LegalEntity__c(blng__Active__c  = true , Update_Rate_Frequency__c = 'Mensuelle' , Name ='Morocco');
+        legalEntities.add(legalEntityMensuelle);
+        
+        blng__LegalEntity__c legalEntityTrimestre = new blng__LegalEntity__c(blng__Active__c  = true , Update_Rate_Frequency__c = 'Trimestrielle' , Name ='Morocco');
+        legalEntities.add(legalEntityTrimestre);
+        
+        blng__LegalEntity__c legalEntityAnnuelle = new blng__LegalEntity__c(blng__Active__c  = true , Update_Rate_Frequency__c = 'Annuelle' , Name ='Morocco');
+        legalEntities.add(legalEntityAnnuelle);
+    
+        insert legalEntities;
+        
+        //UPLIFT RATES
+        List<Uplift_Rate__c> upliftRates = new List<Uplift_Rate__c>();
+        Uplift_Rate__c upliftRate = new Uplift_Rate__c(Index_Year__c  = Date.today().year() ,Legal_Entity__c = legalEntityAnnuelle.Id , Index_Period__c ='Y' , Index__c = 12 );
+		upliftRates.add(upliftRate);
+        upliftRate = new Uplift_Rate__c(Index_Year__c  = Date.today().year()-1 ,Legal_Entity__c = legalEntityAnnuelle.Id , Index_Period__c ='Y' , Index__c = 1 );
+        upliftRates.add(upliftRate);
+        
+        upliftRate = new Uplift_Rate__c(Index_Year__c  = Date.today().year() ,Legal_Entity__c = legalEntityMensuelle.Id , Index_Period__c ='M'+dd.month() , Index__c = 12 );
+		upliftRates.add(upliftRate);
+        upliftRate = new Uplift_Rate__c(Index_Year__c  = Date.today().year()-1 ,Legal_Entity__c = legalEntityMensuelle.Id , Index_Period__c ='M'+dd.month() , Index__c = 1 );
+        upliftRates.add(upliftRate);
+        
+        upliftRate = new Uplift_Rate__c(Index_Year__c  = Date.today().year() ,Legal_Entity__c = legalEntityTrimestre.Id , Index_Period__c ='T'+math.round((dd.month()+1)/3.0) , Index__c = 12 );
+		upliftRates.add(upliftRate);
+        upliftRate = new Uplift_Rate__c(Index_Year__c  = Date.today().year()-1 ,Legal_Entity__c = legalEntityTrimestre.Id , Index_Period__c ='T'+math.round((dd.month()+1)/3.0) , Index__c = 1 );
+        upliftRates.add(upliftRate);
+        
+        insert upliftRates;
+		
+        
+    }
+    
+	@isTest
+    public static void test_PourcentageNegocie(){
+        Contract contract = [SELECT Id FROM Contract LIMIT 1] ;
+        Order order = [Select Id From Order];
+        blng__LegalEntity__c legalEntity = [SELECT Id FROM blng__LegalEntity__c where Update_Rate_Frequency__c = 'Mensuelle' LIMIT 1] ;
+        
+        contract.Next_Date_Uplift__c = Date.today();
+        contract.Uplift_Mode__c = 'Pourcentage fixe négocié';
+        contract.Legal_Entity__c = legalEntity.Id;
+        contract.Negociated_Rate__c = 5;
+        contract.SBQQ__Order__c = order.Id;
+        update contract;
+        
+        Test.startTest();
+        Batch_Contract_Uplift b = new Batch_Contract_Uplift();
+        Database.executeBatch(b,1);
+        Test.stopTest();
+        
+        /*Opportunity opp = [Select Id , SBQQ__PrimaryQuote__c from Opportunity Where Name like '%Amendment%'];
+        SBQQ__Quote__c quote = [Select Id, SBQQ__MasterContract__c, (select Id , SBQQ__Uplift__c from SBQQ__LineItems__r) from SBQQ__Quote__c Where Id = :opp.SBQQ__PrimaryQuote__c Limit 1];
+        system.assert(quote.SBQQ__LineItems__r.size() == 2);
+        system.assert(quote.SBQQ__LineItems__r[0].SBQQ__Uplift__c == 5);*/
+        
+        //Contract Next Date Uplift
+        contract = [SELECT Id , Next_Date_Uplift__c FROM Contract where Id = :contract.Id];
+        system.assert(contract.Next_Date_Uplift__c != Date.today());
+        
+        //Usage Summary Applied Unit Price
+        OrderItem orderItem = [Select Id From OrderItem Where OrderId = :order.Id Limit 1];
+        blng__UsageSummary__c usageSummary = [Select Id , blng__AppliedUnitPrice__c From blng__UsageSummary__c where blng__OrderProduct__c = :orderItem.Id];
+        system.assertEquals(usageSummary.blng__AppliedUnitPrice__c , 60);
+    }
+    
+    @isTest
+    public static void test_IndiceNegocie(){
+        Contract contract = [SELECT Id FROM Contract LIMIT 1] ;
+        Order order = [Select Id From Order];
+        blng__LegalEntity__c legalEntity = [SELECT Id FROM blng__LegalEntity__c where Update_Rate_Frequency__c = 'Annuelle' LIMIT 1] ;
+        
+        contract.Next_Date_Uplift__c = Date.today();
+        contract.Uplift_Mode__c = 'Pourcentage de l\'indice négocié';
+        contract.Legal_Entity__c = legalEntity.Id;
+        contract.Negociated_Rate__c = 5;
+        contract.SBQQ__Order__c = order.Id;
+        update contract;
+        
+        Test.startTest();
+        Batch_Contract_Uplift b = new Batch_Contract_Uplift();
+        Database.executeBatch(b,1);
+        Test.stopTest();
+        
+        /*Opportunity opp = [Select Id , SBQQ__PrimaryQuote__c from Opportunity Where Name like '%Amendment%'];
+        SBQQ__Quote__c quote = [Select Id, SBQQ__MasterContract__c, (select Id , SBQQ__Uplift__c from SBQQ__LineItems__r) from SBQQ__Quote__c Where Id = :opp.SBQQ__PrimaryQuote__c Limit 1];
+        system.assert(quote.SBQQ__LineItems__r.size() == 2);
+        system.assert(quote.SBQQ__LineItems__r[0].SBQQ__Uplift__c == 60);*/
+        
+        //Contract Next Date Uplift
+        contract = [SELECT Id , Next_Date_Uplift__c FROM Contract where Id = :contract.Id];
+        system.assert(contract.Next_Date_Uplift__c != Date.today());
+        
+        //Usage Summary Applied Unit Price
+        OrderItem orderItem = [Select Id From OrderItem Where OrderId = :order.Id Limit 1];
+        blng__UsageSummary__c usageSummary = [Select Id , blng__AppliedUnitPrice__c From blng__UsageSummary__c where blng__OrderProduct__c = :orderItem.Id];
+        system.assertEquals(usageSummary.blng__AppliedUnitPrice__c , 610);
+    }
+    
+    @isTest
+    public static void test_IndiceEnVigueur(){
+        Contract contract = [SELECT Id FROM Contract LIMIT 1] ;
+        Order order = [Select Id From Order];
+        blng__LegalEntity__c legalEntity = [SELECT Id FROM blng__LegalEntity__c where Update_Rate_Frequency__c = 'Annuelle' LIMIT 1] ;
+        contract.Next_Date_Uplift__c = Date.today();
+        contract.Uplift_Mode__c = 'Indexation selon indice en vigueur';
+        contract.Legal_Entity__c = legalEntity.Id;
+        contract.SBQQ__Order__c = order.Id;
+        update contract;
+        
+        Test.startTest();
+        Batch_Contract_Uplift b = new Batch_Contract_Uplift();
+        Database.executeBatch(b,1);
+        Test.stopTest();
+        
+        /*Opportunity opp = [Select Id , SBQQ__PrimaryQuote__c from Opportunity Where Name like '%Amendment%'];
+        SBQQ__Quote__c quote = [Select Id, SBQQ__MasterContract__c, (select Id , SBQQ__Uplift__c from SBQQ__LineItems__r) from SBQQ__Quote__c Where Id = :opp.SBQQ__PrimaryQuote__c Limit 1];
+        system.assert(quote.SBQQ__LineItems__r.size() == 2);
+        system.assert(quote.SBQQ__LineItems__r[0].SBQQ__Uplift__c == 12);*/
+        
+        //Contract Next Date Uplift
+        contract = [SELECT Id , Next_Date_Uplift__c FROM Contract where Id = :contract.Id];
+        system.assert(contract.Next_Date_Uplift__c != Date.today());
+        
+        //Usage Summary Applied Unit Price
+        OrderItem orderItem = [Select Id From OrderItem Where OrderId = :order.Id Limit 1];
+        blng__UsageSummary__c usageSummary = [Select Id , blng__AppliedUnitPrice__c From blng__UsageSummary__c where blng__OrderProduct__c = :orderItem.Id];
+        system.assertEquals(usageSummary.blng__AppliedUnitPrice__c , 130);
+    }
+    
+    @isTest
+    public static void test_PasIndexation(){
+        Contract contract = [SELECT Id FROM Contract LIMIT 1] ;
+        Order order = [Select Id From Order];
+        blng__LegalEntity__c legalEntity = [SELECT Id FROM blng__LegalEntity__c where Update_Rate_Frequency__c = 'Annuelle' LIMIT 1] ;
+        
+        contract.Next_Date_Uplift__c = Date.today();
+        contract.Uplift_Mode__c = 'Pas d\'indexation';
+        contract.Legal_Entity__c = legalEntity.Id;
+        contract.SBQQ__Order__c = order.Id;
+        update contract;
+        
+        Test.startTest();
+        Batch_Contract_Uplift b = new Batch_Contract_Uplift();
+        Database.executeBatch(b,1);
+        Test.stopTest();
+        
+        /*List<Opportunity> opp = [Select Id , SBQQ__PrimaryQuote__c from Opportunity Where Name like '%Amendment%'];
+        system.assert(opp.size() == 0);*/
+        
+        //Contract Next Date Uplift
+        contract = [SELECT Id , Next_Date_Uplift__c FROM Contract where Id = :contract.Id];
+        system.assert(contract.Next_Date_Uplift__c == Date.today());
+        
+        //Usage Summary Applied Unit Price
+        OrderItem orderItem = [Select Id From OrderItem Where OrderId = :order.Id Limit 1];
+        blng__UsageSummary__c usageSummary = [Select Id , blng__AppliedUnitPrice__c From blng__UsageSummary__c where blng__OrderProduct__c = :orderItem.Id];
+        system.assertEquals(usageSummary.blng__AppliedUnitPrice__c , null);
+    }
+
+}
