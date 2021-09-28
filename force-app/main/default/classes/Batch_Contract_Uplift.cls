@@ -52,9 +52,9 @@ global class Batch_Contract_Uplift implements Database.Batchable<sObject>, Datab
             }
 
             if(sendEmail) logs.add('*** , rateByEntityAndFrequence: '+rateByEntityAndFrequence);
-            
+            List<Uplift_Rate__c> upliftRates = Select Id , Index__c , Index_Year__c , Index_Period__c , Legal_Entity__c From Uplift_Rate__c Where Legal_Entity__c In :entities And TECH_Period_Date__c <= :todayDate order by TECH_Period_Date__c desc];
             //Set upliftRatesByEntity Map : 
-            for(Uplift_Rate__c upliftRate : [Select Id , Index__c , Index_Year__c , Index_Period__c , Legal_Entity__c From Uplift_Rate__c Where Legal_Entity__c In :entities And Index_Year__c In :years And Index_Period__c In :periods.values() ]){
+            for(Uplift_Rate__c upliftRate : upliftRates){
                 if(!upliftRatesByEntity.containskey(upliftRate.Legal_Entity__c)){
                     upliftRatesByEntity.put(upliftRate.Legal_Entity__c , new List<Uplift_Rate__c>());
                 }
@@ -83,10 +83,10 @@ global class Batch_Contract_Uplift implements Database.Batchable<sObject>, Datab
                 else{
                     if(upliftRatesByEntity.get(contract.Legal_Entity__c) != null){
                         for(Uplift_Rate__c upliftRate : upliftRatesByEntity.get(contract.Legal_Entity__c)){
-                            if(upliftRate.Index_Year__c == years[0] && upliftRate.Index_Period__c == periods.get(contract.Legal_Entity__r.Update_Rate_Frequency__c)){
+                            if(upliftRate.Index_Period__c == periods.get(contract.Legal_Entity__r.Update_Rate_Frequency__c && actualRateToApply == null )){
                                 actualRateToApply = upliftRate.Index__c;
                             }
-                            else if(upliftRate.Index_Year__c == years[1] && upliftRate.Index_Period__c == periods.get(contract.Legal_Entity__r.Update_Rate_Frequency__c)){
+                            else if(upliftRate.Index_Period__c == periods.get(contract.Legal_Entity__r.Update_Rate_Frequency__c && previousRateToApply == null)){
                                 previousRateToApply = upliftRate.Index__c;
                             }
                         }
@@ -150,7 +150,8 @@ global class Batch_Contract_Uplift implements Database.Batchable<sObject>, Datab
             
             Date nextDate; 
             for(Contract contract : contracts){
-                nextDate = contract.Legal_Entity__r.Update_Rate_Frequency__c == 'Mensuelle' ? contract.Next_Date_Uplift__c.addMonths(1) : ( contract.Legal_Entity__r.Update_Rate_Frequency__c == 'Trimestrielle' ? contract.Next_Date_Uplift__c.addMonths(3) : contract.Next_Date_Uplift__c.addYears(1));
+                //nextDate = contract.Legal_Entity__r.Update_Rate_Frequency__c == 'Mensuelle' ? contract.Next_Date_Uplift__c.addMonths(1) : ( contract.Legal_Entity__r.Update_Rate_Frequency__c == 'Trimestrielle' ? contract.Next_Date_Uplift__c.addMonths(3) : 
+                nextDate = contract.Next_Date_Uplift__c.addYears(1));
                 contract.Next_Date_Uplift__c = nextDate;
             }
             update contracts;
